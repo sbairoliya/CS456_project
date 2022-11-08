@@ -78,3 +78,7 @@ ppStat s = case s of
 
 instance Show Statement where show = ppStat
 
+
+data ExType =
+    NatType | BoolType
+
