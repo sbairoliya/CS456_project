@@ -13,7 +13,7 @@ e ::= x read from store
     | e ≤ e comparison
 */
 
-use std::{collections::HashMap, marker};
+use std::{collections::HashMap, fmt::format, marker};
 
 #[derive(Clone)]
 pub enum Expression {
@@ -171,11 +171,7 @@ fn printStatement(st: Statement) -> String {
     }
 }
 
-fn typeCheckExp(
-    exp: Expression,
-    stack: &HashMap<String, ExType>,
-    heap: &HashMap<String, ExType>,
-) -> Result<ExType, String> {
+fn typeCheckExp(exp: Expression, stack: &HashMap<String, ExType>) -> Result<ExType, String> {
     match exp {
         Expression::StackVar { x } => {
             if stack.contains_key(&x) {
@@ -187,7 +183,7 @@ fn typeCheckExp(
         Expression::HeapVar { x } => {
             if stack.contains_key(&x) {
                 match stack.get(&x).unwrap().clone() {
-                    ExType::PointerType => Result::Ok(heap.get(&x).unwrap().clone()),
+                    ExType::PointerType => Result::Ok(ExType::NatType),
                     _ => Result::Err(format!("variable: {} is not a pointer", x)),
                 }
             } else {
@@ -199,10 +195,7 @@ fn typeCheckExp(
         Expression::Add { ex1, ex2 } => {
             let p1 = printExpression(*ex1.clone());
             let p2 = printExpression(*ex2.clone());
-            match (
-                typeCheckExp(*ex1, stack, heap),
-                typeCheckExp(*ex2, stack, heap),
-            ) {
+            match (typeCheckExp(*ex1, stack), typeCheckExp(*ex2, stack)) {
                 (Ok(ExType::NatType), Ok(ExType::NatType)) => Result::Ok(ExType::NatType),
                 (Err(e), _) => Result::Err(e),
                 (_, Err(e)) => Result::Err(e),
@@ -220,7 +213,7 @@ fn typeCheckExp(
         }
         Expression::Negation { ex1 } => {
             let p1 = printExpression(*ex1.clone());
-            match typeCheckExp(*ex1, stack, heap) {
+            match typeCheckExp(*ex1, stack) {
                 Ok(tp) => match tp {
                     ExType::BoolType => Result::Ok(ExType::BoolType),
                     _ => Result::Err(format!("Expression: {} should be of BoolType", p1)),
@@ -231,10 +224,7 @@ fn typeCheckExp(
         Expression::Conjunction { ex1, ex2 } => {
             let p1 = printExpression(*ex1.clone());
             let p2 = printExpression(*ex2.clone());
-            match (
-                typeCheckExp(*ex1, stack, heap),
-                typeCheckExp(*ex2, stack, heap),
-            ) {
+            match (typeCheckExp(*ex1, stack), typeCheckExp(*ex2, stack)) {
                 (Ok(ExType::BoolType), Ok(ExType::BoolType)) => Result::Ok(ExType::BoolType),
                 (Err(e), _) => Result::Err(e),
                 (_, Err(e)) => Result::Err(e),
@@ -253,10 +243,7 @@ fn typeCheckExp(
         Expression::Comparision { ex1, ex2 } => {
             let p1 = printExpression(*ex1.clone());
             let p2 = printExpression(*ex2.clone());
-            match (
-                typeCheckExp(*ex1, stack, heap),
-                typeCheckExp(*ex2, stack, heap),
-            ) {
+            match (typeCheckExp(*ex1, stack), typeCheckExp(*ex2, stack)) {
                 (Ok(ExType::NatType), Ok(ExType::NatType)) => Result::Ok(ExType::BoolType),
                 (Err(e), _) => Result::Err(e),
                 (_, Err(e)) => Result::Err(e),
@@ -275,60 +262,146 @@ fn typeCheckExp(
     }
 }
 
-fn typeCheck(
-    st: Statement,
-    stack: &mut HashMap<String, ExType>,
-    heap: &mut HashMap<String, ExType>,
-) -> Option<String> {
+fn typeCheck(st: Statement, stack: &mut HashMap<String, ExType>) -> Option<String> {
     match st {
-        Statement::StackAssignment { x, ex1 } => match typeCheckExp(*ex1, stack, heap) {
-            Ok(tp) => {
-                stack.insert(x, tp);
-                None
-            }
-            Err(e) => Some(e),
-        },
-        Statement::HeapUpdate { x, ex1 } => {
-            let temp_exp = Expression::HeapVar { x: x };
-            let tp = typeCheckExp(temp_exp, stack, heap); // checks if a variable is on the heap
-            match tp {
-                Ok(tp_stored) => {
-                    match typeCheckExp(*ex1, stack, heap) {
-                        Ok(tp_exp) => {
-                            if tp_exp == tp_stored {
-                                None
-                            } else {
-                                Some("Heap update does not match pre-exisiting type".to_string())
-                            }
-                            
-                        },
-                        Err(e) => Some(e),
+        Statement::StackAssignment { x, ex1 } => {
+            let p1 = printExpression(*ex1.clone());
+            match typeCheckExp(*ex1, stack) {
+                Ok(tp) => {
+                    if stack.contains_key(&x) {
+                        if stack.get(&x).unwrap() != &tp {
+                            Some(format!(
+                                "Variable {} already exists & does not match the type of {}",
+                                x, p1
+                            ))
+                        } else {
+                            None
+                        }
+                    } else {
+                        stack.insert(x, tp);
+                        None
                     }
-                    
-                },
-                // TODO Need to confirm type of heapVars Here
+                }
                 Err(e) => Some(e),
+            }
+        }
+        Statement::HeapUpdate { x, ex1 } => {
+            let p1 = printExpression(*ex1.clone());
+            if !stack.contains_key(&x) {
+                Some(format!("Undefined reference to variable {}", x))
+            } else {
+                match stack.get(&x).unwrap() {
+                    ExType::PointerType => match typeCheckExp(*ex1, stack) {
+                        Ok(ExType::NatType) => None,
+                        Ok(_) => Some(format!("Expression: {} should be NatType", p1)),
+                        Err(e) => Some(e),
+                    },
+                    _ => Some(format!("{} is not PointerType", x)),
+                }
             }
         }
         Statement::HeapAlias { x, y } => {
             if !stack.contains_key(&y) {
-                Some(format!("Cannot alias {} since pointer is not defined", y))
+                Some(format!("Undefined reference to variable {}", y))
             } else {
                 match stack.get(&y).unwrap() {
-                    ExType::PointerType => todo!(),
-                    ExType::NatType => todo!(),
-                    ExType::BoolType => todo!(),
+                    ExType::PointerType => {
+                        if stack.contains_key(&x) {
+                            if stack.get(&x).unwrap().clone() != ExType::PointerType {
+                                Some(format!(
+                                    "Variable {} already exists and is not PointerType",
+                                    x
+                                ))
+                            } else {
+                                None
+                            }
+                        } else {
+                            stack.insert(x, ExType::PointerType);
+                            None
+                        }
+                    }
+                    _ => Some(format!("Cannot alias {} since it is not PointerType", y)),
                 }
             }
+        }
+        Statement::HeapNew { x, ex1 } => {
+            let p1 = printExpression(*ex1.clone());
+            match typeCheckExp(*ex1, stack) {
+                Ok(ExType::NatType) => {
+                    if stack.contains_key(&x) {
+                        if stack.get(&x).unwrap().clone() != ExType::PointerType {
+                            Some(format!(
+                                "Variable {} already exists and is not PointerType",
+                                x
+                            ))
+                        } else {
+                            None
+                        }
+                    } else {
+                        stack.insert(x, ExType::PointerType);
+                        None
+                    }
+                }
+                Ok(_) => Some(format!("Expression: {} should be of NatType", p1)),
+                Err(e) => Some(e),
+            }
+        }
+        Statement::Sequence { st1, st2 } => match typeCheck(*st1, stack) {
+            Some(e) => Some(e),
+            None => typeCheck(*st2, stack),
         },
-        Statement::HeapNew { x, ex1 } => todo!(),
-        Statement::Sequence { st1, st2 } => todo!(),
         Statement::IfThenElse {
             condition,
             then_branch,
             else_branch,
-        } => todo!(),
-        Statement::Skip => todo!(),
-        Statement::While { condition, st } => todo!(),
+        } => {
+            let p1 = printExpression(*condition.clone());
+            match typeCheckExp(*condition, stack) {
+                Ok(ExType::BoolType) => {
+                    //clone the hash map
+                    let mut n_map = stack.clone();
+                    let check_then_b = typeCheck(*then_branch, &mut n_map);
+                    let check_else_b= typeCheck(*else_branch, stack);
+                    match (check_then_b, check_else_b) {
+                        (None, None) => {
+                            let mut check = true;
+                            if !n_map.len() == stack.len() {
+                                check = false;
+                            }
+                            for (key, value) in n_map {
+                                if stack.contains_key(&key) {
+                                    if !(stack.get(&key).unwrap().clone() == value) {
+                                        check = false;
+                                    }
+                                } else {
+                                    check = false;
+                                }
+                            }
+
+                            if !check {
+                                Some(format!("Stack or Heap after the If Then Else are not identical"))
+                            } else {
+                                None
+                            }
+                        },
+                        (Some(e), _) => Some(e),
+                        (_, Some(e)) => Some(e),
+                    }
+                },
+                Ok(_) => Some(format!("Expression: {} should be of BoolType", p1)), 
+                Err(e) => Some(e),
+            }
+        }
+        Statement::Skip => None,
+        Statement::While { condition, st } => {
+            let p1 = printExpression(*condition.clone());
+            match typeCheckExp(*condition, stack) {
+                Ok(ExType::BoolType) => {
+                    typeCheck(*st, stack)
+                },
+                Ok(_) => Some(format!("Expression: {} should be of BoolType", p1)), 
+                Err(e) => Some(e),
+            }
+        },
     }
 }
