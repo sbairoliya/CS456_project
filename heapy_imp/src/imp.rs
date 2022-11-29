@@ -361,7 +361,7 @@ fn typeCheck(st: Statement, stack: &mut HashMap<String, ExType>) -> Option<Strin
                     //clone the hash map
                     let mut n_map = stack.clone();
                     let check_then_b = typeCheck(*then_branch, &mut n_map);
-                    let check_else_b= typeCheck(*else_branch, stack);
+                    let check_else_b = typeCheck(*else_branch, stack);
                     match (check_then_b, check_else_b) {
                         (None, None) => {
                             let mut check = true;
@@ -379,16 +379,18 @@ fn typeCheck(st: Statement, stack: &mut HashMap<String, ExType>) -> Option<Strin
                             }
 
                             if !check {
-                                Some(format!("Stack or Heap after the If Then Else are not identical"))
+                                Some(format!(
+                                    "Stack or Heap after the If Then Else are not identical"
+                                ))
                             } else {
                                 None
                             }
-                        },
+                        }
                         (Some(e), _) => Some(e),
                         (_, Some(e)) => Some(e),
                     }
-                },
-                Ok(_) => Some(format!("Expression: {} should be of BoolType", p1)), 
+                }
+                Ok(_) => Some(format!("Expression: {} should be of BoolType", p1)),
                 Err(e) => Some(e),
             }
         }
@@ -396,12 +398,10 @@ fn typeCheck(st: Statement, stack: &mut HashMap<String, ExType>) -> Option<Strin
         Statement::While { condition, st } => {
             let p1 = printExpression(*condition.clone());
             match typeCheckExp(*condition, stack) {
-                Ok(ExType::BoolType) => {
-                    typeCheck(*st, stack)
-                },
-                Ok(_) => Some(format!("Expression: {} should be of BoolType", p1)), 
+                Ok(ExType::BoolType) => typeCheck(*st, stack),
+                Ok(_) => Some(format!("Expression: {} should be of BoolType", p1)),
                 Err(e) => Some(e),
             }
-        },
+        }
     }
 }
