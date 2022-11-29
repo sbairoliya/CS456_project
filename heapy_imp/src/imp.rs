@@ -91,11 +91,11 @@ pub enum Statement {
     },
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum ExType {
     NatType,
     BoolType,
-    PointerType
+    PointerType,
 }
 
 fn printExpression(exp: Expression) -> String {
@@ -171,9 +171,11 @@ fn printStatement(st: Statement) -> String {
     }
 }
 
-
-
-fn typeEvalExp(exp: Expression, stack: HashMap<String, ExType>, heap: HashMap<String, ExType>) -> Result<ExType, String> {
+fn typeCheckExp(
+    exp: Expression,
+    stack: &HashMap<String, ExType>,
+    heap: &HashMap<String, ExType>,
+) -> Result<ExType, String> {
     match exp {
         Expression::StackVar { x } => {
             if stack.contains_key(&x) {
@@ -181,91 +183,151 @@ fn typeEvalExp(exp: Expression, stack: HashMap<String, ExType>, heap: HashMap<St
             } else {
                 Result::Err(format!("undeclared stack variable: {}", x))
             }
-        },
+        }
         Expression::HeapVar { x } => {
             if stack.contains_key(&x) {
                 match stack.get(&x).unwrap().clone() {
                     ExType::PointerType => Result::Ok(heap.get(&x).unwrap().clone()),
-                    _ => Result::Err(format!("variable: {} is not a pointer", x))
+                    _ => Result::Err(format!("variable: {} is not a pointer", x)),
                 }
             } else {
                 Result::Err("Null Pointer Exception".to_string())
             }
-        },
+        }
         Expression::NatConstant { n } => Result::Ok(ExType::NatType),
         Expression::BoolConstant { b } => Result::Ok(ExType::BoolType),
         Expression::Add { ex1, ex2 } => {
             let p1 = printExpression(*ex1.clone());
             let p2 = printExpression(*ex2.clone());
-            match (typeEvalExp(*ex1, stack.clone(), heap.clone()), typeEvalExp(*ex2, stack, heap)) {
+            match (
+                typeCheckExp(*ex1, stack, heap),
+                typeCheckExp(*ex2, stack, heap),
+            ) {
                 (Ok(ExType::NatType), Ok(ExType::NatType)) => Result::Ok(ExType::NatType),
                 (Err(e), _) => Result::Err(e),
                 (_, Err(e)) => Result::Err(e),
                 (Ok(ExType::NatType), Ok(_)) => {
                     Result::Err(format!("Expression: {} should be of NatType", p1))
-                },
+                }
                 (Ok(_), Ok(ExType::NatType)) => {
                     Result::Err(format!("Expression: {} should be of NatType", p2))
-                },
-                (Ok(_), Ok(_)) => Result::Err(format!("Expression: {} & Expression: {} should be of NatType", p1, p2))
+                }
+                (Ok(_), Ok(_)) => Result::Err(format!(
+                    "Expression: {} & Expression: {} should be of NatType",
+                    p1, p2
+                )),
             }
-        },
+        }
         Expression::Negation { ex1 } => {
             let p1 = printExpression(*ex1.clone());
-            match typeEvalExp(*ex1, stack, heap) {
-                Ok(tp) => {
-                    match tp {
-                        ExType::BoolType => Result::Ok(ExType::BoolType),
-                        _ => Result::Err(format!("Expression: {} should be of BoolType", p1)),
-                    }
+            match typeCheckExp(*ex1, stack, heap) {
+                Ok(tp) => match tp {
+                    ExType::BoolType => Result::Ok(ExType::BoolType),
+                    _ => Result::Err(format!("Expression: {} should be of BoolType", p1)),
                 },
                 Err(e) => Result::Err(e),
             }
-        },
+        }
         Expression::Conjunction { ex1, ex2 } => {
             let p1 = printExpression(*ex1.clone());
             let p2 = printExpression(*ex2.clone());
-            match (typeEvalExp(*ex1, stack.clone(), heap.clone()), typeEvalExp(*ex2, stack, heap)) {
+            match (
+                typeCheckExp(*ex1, stack, heap),
+                typeCheckExp(*ex2, stack, heap),
+            ) {
                 (Ok(ExType::BoolType), Ok(ExType::BoolType)) => Result::Ok(ExType::BoolType),
                 (Err(e), _) => Result::Err(e),
                 (_, Err(e)) => Result::Err(e),
                 (Ok(ExType::NatType), Ok(_)) => {
                     Result::Err(format!("Expression: {} should be of BoolType", p1))
-                },
+                }
                 (Ok(_), Ok(ExType::NatType)) => {
                     Result::Err(format!("Expression: {} should be of BoolType", p2))
-                },
-                (Ok(_), Ok(_)) => Result::Err(format!("Expression: {} & Expression: {} should be of BoolType", p1, p2))
+                }
+                (Ok(_), Ok(_)) => Result::Err(format!(
+                    "Expression: {} & Expression: {} should be of BoolType",
+                    p1, p2
+                )),
             }
-        },
+        }
         Expression::Comparision { ex1, ex2 } => {
             let p1 = printExpression(*ex1.clone());
             let p2 = printExpression(*ex2.clone());
-            match (typeEvalExp(*ex1, stack.clone(), heap.clone()), typeEvalExp(*ex2, stack, heap)) {
+            match (
+                typeCheckExp(*ex1, stack, heap),
+                typeCheckExp(*ex2, stack, heap),
+            ) {
                 (Ok(ExType::NatType), Ok(ExType::NatType)) => Result::Ok(ExType::BoolType),
                 (Err(e), _) => Result::Err(e),
                 (_, Err(e)) => Result::Err(e),
                 (Ok(ExType::NatType), Ok(_)) => {
                     Result::Err(format!("Expression: {} should be of NatType", p1))
-                },
+                }
                 (Ok(_), Ok(ExType::NatType)) => {
                     Result::Err(format!("Expression: {} should be of NatType", p2))
-                },
-                (Ok(_), Ok(_)) => Result::Err(format!("Expression: {} & Expression: {} should be of NatType", p1, p2))
+                }
+                (Ok(_), Ok(_)) => Result::Err(format!(
+                    "Expression: {} & Expression: {} should be of NatType",
+                    p1, p2
+                )),
             }
-        },
+        }
     }
 }
 
-
-fn typeCheck(st: Statement, stack: HashMap<String, ExType>, heap: HashMap<String, ExType>) {
+fn typeCheck(
+    st: Statement,
+    stack: &mut HashMap<String, ExType>,
+    heap: &mut HashMap<String, ExType>,
+) -> Option<String> {
     match st {
-        Statement::StackAssignment { x, ex1 } => todo!(),
-        Statement::HeapUpdate { x, ex1 } => todo!(),
-        Statement::HeapAlias { x, y } => todo!(),
+        Statement::StackAssignment { x, ex1 } => match typeCheckExp(*ex1, stack, heap) {
+            Ok(tp) => {
+                stack.insert(x, tp);
+                None
+            }
+            Err(e) => Some(e),
+        },
+        Statement::HeapUpdate { x, ex1 } => {
+            let temp_exp = Expression::HeapVar { x: x };
+            let tp = typeCheckExp(temp_exp, stack, heap); // checks if a variable is on the heap
+            match tp {
+                Ok(tp_stored) => {
+                    match typeCheckExp(*ex1, stack, heap) {
+                        Ok(tp_exp) => {
+                            if tp_exp == tp_stored {
+                                None
+                            } else {
+                                Some("Heap update does not match pre-exisiting type".to_string())
+                            }
+                            
+                        },
+                        Err(e) => Some(e),
+                    }
+                    
+                },
+                // TODO Need to confirm type of heapVars Here
+                Err(e) => Some(e),
+            }
+        }
+        Statement::HeapAlias { x, y } => {
+            if !stack.contains_key(&y) {
+                Some(format!("Cannot alias {} since pointer is not defined", y))
+            } else {
+                match stack.get(&y).unwrap() {
+                    ExType::PointerType => todo!(),
+                    ExType::NatType => todo!(),
+                    ExType::BoolType => todo!(),
+                }
+            }
+        },
         Statement::HeapNew { x, ex1 } => todo!(),
         Statement::Sequence { st1, st2 } => todo!(),
-        Statement::IfThenElse { condition, then_branch, else_branch } => todo!(),
+        Statement::IfThenElse {
+            condition,
+            then_branch,
+            else_branch,
+        } => todo!(),
         Statement::Skip => todo!(),
         Statement::While { condition, st } => todo!(),
     }
