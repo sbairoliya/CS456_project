@@ -61,11 +61,11 @@ s ::= x := e assignment to store
 pub enum Statement {
     StackAssignment {
         x: String,
-        ex1: Box<Expression>,
+        ex1: Expression,
     },
     HeapUpdate {
         x: String,
-        ex1: Box<Expression>,
+        ex1: Expression,
     },
     HeapAlias {
         x: String,
@@ -73,20 +73,20 @@ pub enum Statement {
     },
     HeapNew {
         x: String,
-        ex1: Box<Expression>,
+        ex1: Expression,
     },
     Sequence {
         st1: Box<Statement>,
         st2: Box<Statement>,
     },
     IfThenElse {
-        condition: Box<Expression>,
+        condition: Expression,
         then_branch: Box<Statement>,
         else_branch: Box<Statement>,
     },
     Skip,
     While {
-        condition: Box<Expression>,
+        condition: Expression,
         st: Box<Statement>,
     },
 }
@@ -129,16 +129,16 @@ fn printExpression(exp: Expression) -> String {
 fn printStatement(st: Statement) -> String {
     match st {
         Statement::StackAssignment { x, ex1 } => {
-            let t1 = printExpression(*ex1);
+            let t1 = printExpression(ex1);
             String::from("") + &x + " = " + &t1.to_owned()
         }
         Statement::HeapUpdate { x, ex1 } => {
-            let t1 = printExpression(*ex1);
+            let t1 = printExpression(ex1);
             String::from("!") + &x + " = " + &t1.to_owned()
         }
         Statement::HeapAlias { x, y } => String::from("") + &x + &y,
         Statement::HeapNew { x, ex1 } => {
-            let t1 = printExpression(*ex1);
+            let t1 = printExpression(ex1);
             String::from("") + &x + " = new(" + &t1.to_owned() + ")"
         }
         Statement::Sequence { st1, st2 } => {
@@ -151,7 +151,7 @@ fn printStatement(st: Statement) -> String {
             then_branch,
             else_branch,
         } => {
-            let cnd = printExpression(*condition);
+            let cnd = printExpression(condition);
             let thenb = printStatement(*then_branch);
             let elseb = printStatement(*else_branch);
             String::from("if (")
@@ -164,7 +164,7 @@ fn printStatement(st: Statement) -> String {
         }
         Statement::Skip => String::from("skip"),
         Statement::While { condition, st } => {
-            let cnd = printExpression(*condition);
+            let cnd = printExpression(condition);
             let t1 = printStatement(*st);
             String::from("while (") + &cnd.to_owned() + ")" + " do { " + &t1.to_owned() + "}"
         }
@@ -265,8 +265,8 @@ fn typeCheckExp(exp: Expression, stack: &HashMap<String, ExType>) -> Result<ExTy
 fn typeCheck(st: Statement, stack: &mut HashMap<String, ExType>) -> Option<String> {
     match st {
         Statement::StackAssignment { x, ex1 } => {
-            let p1 = printExpression(*ex1.clone());
-            match typeCheckExp(*ex1, stack) {
+            let p1 = printExpression(ex1.clone());
+            match typeCheckExp(ex1, stack) {
                 Ok(tp) => {
                     if stack.contains_key(&x) {
                         if stack.get(&x).unwrap() != &tp {
@@ -286,12 +286,12 @@ fn typeCheck(st: Statement, stack: &mut HashMap<String, ExType>) -> Option<Strin
             }
         }
         Statement::HeapUpdate { x, ex1 } => {
-            let p1 = printExpression(*ex1.clone());
+            let p1 = printExpression(ex1.clone());
             if !stack.contains_key(&x) {
                 Some(format!("Undefined reference to variable {}", x))
             } else {
                 match stack.get(&x).unwrap() {
-                    ExType::PointerType => match typeCheckExp(*ex1, stack) {
+                    ExType::PointerType => match typeCheckExp(ex1, stack) {
                         Ok(ExType::NatType) => None,
                         Ok(_) => Some(format!("Expression: {} should be NatType", p1)),
                         Err(e) => Some(e),
@@ -325,8 +325,8 @@ fn typeCheck(st: Statement, stack: &mut HashMap<String, ExType>) -> Option<Strin
             }
         }
         Statement::HeapNew { x, ex1 } => {
-            let p1 = printExpression(*ex1.clone());
-            match typeCheckExp(*ex1, stack) {
+            let p1 = printExpression(ex1.clone());
+            match typeCheckExp(ex1, stack) {
                 Ok(ExType::NatType) => {
                     if stack.contains_key(&x) {
                         if stack.get(&x).unwrap().clone() != ExType::PointerType {
@@ -355,8 +355,8 @@ fn typeCheck(st: Statement, stack: &mut HashMap<String, ExType>) -> Option<Strin
             then_branch,
             else_branch,
         } => {
-            let p1 = printExpression(*condition.clone());
-            match typeCheckExp(*condition, stack) {
+            let p1 = printExpression(condition.clone());
+            match typeCheckExp(condition, stack) {
                 Ok(ExType::BoolType) => {
                     //clone the hash map
                     let mut n_map = stack.clone();
@@ -396,8 +396,8 @@ fn typeCheck(st: Statement, stack: &mut HashMap<String, ExType>) -> Option<Strin
         }
         Statement::Skip => None,
         Statement::While { condition, st } => {
-            let p1 = printExpression(*condition.clone());
-            match typeCheckExp(*condition, stack) {
+            let p1 = printExpression(condition.clone());
+            match typeCheckExp(condition, stack) {
                 Ok(ExType::BoolType) => typeCheck(*st, stack),
                 Ok(_) => Some(format!("Expression: {} should be of BoolType", p1)),
                 Err(e) => Some(e),
