@@ -91,14 +91,14 @@ pub enum Statement {
     },
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum ExType {
     NatType,
     BoolType,
     PointerType,
 }
 
-fn printExpression(exp: Expression) -> String {
+pub fn printExpression(exp: Expression) -> String {
     match exp {
         Expression::StackVar { x } => String::from(x) + " ",
         Expression::HeapVar { x } => String::from("!") + &x + " ",
@@ -126,7 +126,7 @@ fn printExpression(exp: Expression) -> String {
     }
 }
 
-fn printStatement(st: Statement) -> String {
+pub fn printStatement(st: Statement) -> String {
     match st {
         Statement::StackAssignment { x, ex1 } => {
             let t1 = printExpression(ex1);
@@ -171,7 +171,7 @@ fn printStatement(st: Statement) -> String {
     }
 }
 
-fn typeCheckExp(exp: Expression, stack: &HashMap<String, ExType>) -> Result<ExType, String> {
+pub fn typeCheckExp(exp: Expression, stack: &HashMap<String, ExType>) -> Result<ExType, String> {
     match exp {
         Expression::StackVar { x } => {
             if stack.contains_key(&x) {
@@ -262,7 +262,7 @@ fn typeCheckExp(exp: Expression, stack: &HashMap<String, ExType>) -> Result<ExTy
     }
 }
 
-fn typeCheck(st: Statement, stack: &mut HashMap<String, ExType>) -> Option<String> {
+pub fn typeCheck(st: Statement, stack: &mut HashMap<String, ExType>) -> Option<String> {
     match st {
         Statement::StackAssignment { x, ex1 } => {
             let p1 = printExpression(ex1.clone());
