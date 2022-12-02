@@ -235,17 +235,16 @@ fn runAssignmentStoreExamples(
         },
     };
 
-    // let invalidAssignment_pointer = Statement::StackAssignment {
-    //     x: "x".to_string(),
-    //     ex1: Expression::StackVar { x: "h".to_string() },
-    // };
+    let invalidAssignment_pointer = Statement::StackAssignment {
+        x: "x".to_string(),
+        ex1: Expression::StackVar { x: "h".to_string() },
+    };
 
     assert!(typeCheck(validAssignment_nat, &mut empty_hashmap.clone()).is_none());
     assert!(typeCheck(validAssignment_boolConjunction, &mut empty_hashmap.clone()).is_none());
     assert!(typeCheck(validAssignment_boolNegation, &mut empty_hashmap.clone()).is_none());
 
-    // To Fix
-    // assert!(typeCheck(invalidAssignment_pointer, &mut hashmapWithHeapVar.clone()).is_some());
+    assert!(typeCheck(invalidAssignment_pointer, &mut hashmapWithHeapVar.clone()).is_some());
 }
 
 fn main() {

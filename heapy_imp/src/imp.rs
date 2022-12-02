@@ -268,18 +268,22 @@ pub fn typeCheck(st: Statement, stack: &mut HashMap<String, ExType>) -> Option<S
             let p1 = printExpression(ex1.clone());
             match typeCheckExp(ex1, stack) {
                 Ok(tp) => {
-                    if stack.contains_key(&x) {
-                        if stack.get(&x).unwrap() != &tp {
-                            Some(format!(
-                                "Variable {} already exists & does not match the type of {}",
-                                x, p1
-                            ))
+                    if tp == ExType::PointerType {
+                        Some("Cannot Assign pointer type to a stack variable".to_string())
+                    } else {
+                        if stack.contains_key(&x) {
+                            if stack.get(&x).unwrap() != &tp {
+                                Some(format!(
+                                    "Variable {} already exists & does not match the type of {}",
+                                    x, p1
+                                ))
+                            } else {
+                                None
+                            }
                         } else {
+                            stack.insert(x, tp);
                             None
                         }
-                    } else {
-                        stack.insert(x, tp);
-                        None
                     }
                 }
                 Err(e) => Some(e),
