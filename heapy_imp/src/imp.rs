@@ -171,6 +171,14 @@ pub fn printStatement(st: Statement) -> String {
     }
 }
 
+pub fn printType(tp: ExType) -> String {
+    match tp {
+        ExType::NatType => String::from("NatType"),
+        ExType::BoolType => String::from("BoolType"),
+        ExType::PointerType => String::from("PointerType"),
+    }
+}
+
 pub fn typeCheckExp(exp: Expression, stack: &HashMap<String, ExType>) -> Result<ExType, String> {
     match exp {
         Expression::StackVar { x } => {

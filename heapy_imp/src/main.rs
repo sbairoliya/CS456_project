@@ -1,11 +1,104 @@
 use std::collections::HashMap;
 
+use crate::imp::printExpression;
+use crate::imp::printStatement;
+use crate::imp::printType;
 use crate::imp::typeCheck;
 use crate::imp::typeCheckExp;
 use crate::imp::ExType;
 use crate::imp::Expression;
 use crate::imp::Statement;
+
 mod imp;
+
+fn printHashMap(hashmap_to_pass: HashMap<String, ExType>) {
+    print!("[ ");
+    for (key, value) in &hashmap_to_pass {
+        print!("\"{}\": {}, ", key, printType(value.clone()));
+    }
+    print!(" ]\n")
+}
+
+fn checkHashMap(hash_original: HashMap<String, ExType>, hash_expected: HashMap<String, ExType>) {
+    if hash_expected.is_empty() {
+        return;
+    } else {
+        print!("Context expected to contain: ")
+    }
+    print!("[ ");
+    for (key, value) in &hash_expected {
+        print!("\"{}\": {}, ", key, printType(value.clone()));
+        assert!(hash_original.contains_key(key));
+        assert_eq!(hash_original.get(key), Some(value));
+    }
+    print!(" ]\n");
+    print!("Context is correct\n");
+}
+
+fn typeCheckExpressionPass(syntax_tree: Expression, hashmap_to_pass: HashMap<String, ExType>) {
+    print!(
+        "Type Checking Valid Expression: \n{}\n",
+        printExpression(syntax_tree.clone())
+    );
+    print!("Current Typing Context: ");
+    printHashMap(hashmap_to_pass.clone());
+    let hashmap_to_pass = &mut hashmap_to_pass.clone();
+    assert!(typeCheckExp(syntax_tree, hashmap_to_pass).is_ok());
+    print!("Type Check Passed\n\n")
+}
+
+fn typeCheckStatementPass(
+    syntax_tree: Statement,
+    hashmap_to_pass: HashMap<String, ExType>,
+    hash_expected: HashMap<String, ExType>,
+) {
+    print!(
+        "Type Checking Valid Statement: \n{}\n",
+        printStatement(syntax_tree.clone())
+    );
+    print!("Current Typing Context: ");
+    printHashMap(hashmap_to_pass.clone());
+    let hashmap_to_pass = &mut hashmap_to_pass.clone();
+    assert!(typeCheck(syntax_tree, hashmap_to_pass).is_none());
+    print!("Typing Context after type check: ");
+    printHashMap(hashmap_to_pass.clone());
+    checkHashMap(hashmap_to_pass.clone(), hash_expected);
+    print!("Type Check Passed\n\n")
+}
+
+fn typeCheckExpressionFail(syntax_tree: Expression, hashmap_to_pass: HashMap<String, ExType>) {
+    print!(
+        "Type Checking Invalid Expression: \n{}\n",
+        printExpression(syntax_tree.clone())
+    );
+    print!("Current Typing Context: ");
+    printHashMap(hashmap_to_pass.clone());
+    let hashmap_to_pass = &mut hashmap_to_pass.clone();
+    let tp = typeCheckExp(syntax_tree, hashmap_to_pass);
+    assert!(tp.is_err());
+    print!("Type Check Failed as Expected the error message is:\n");
+    match tp {
+        Ok(_) => (),
+        Err(x) => print!("{}\n\n", x),
+    }
+}
+
+fn typeCheckStatementFail(syntax_tree: Statement, hashmap_to_pass: HashMap<String, ExType>) {
+    print!(
+        "Type Checking Invalid Statement: \n{}\n",
+        printStatement(syntax_tree.clone())
+    );
+    print!("Current Typing Context: ");
+    printHashMap(hashmap_to_pass.clone());
+    let hashmap_to_pass = &mut hashmap_to_pass.clone();
+    let tp = typeCheck(syntax_tree, hashmap_to_pass);
+    assert!(tp.is_some());
+    print!("Type Check Failed as Expected the error message is:\n");
+    match tp {
+        Some(x) => print!("{}\n\n", x),
+        None => (),
+    }
+}
 
 fn runNegationExamples(
     empty_hashmap: HashMap<String, ExType>,
@@ -36,12 +129,16 @@ fn runNegationExamples(
         ex1: Box::new(Expression::NatConstant { n: 4 }),
     };
 
-    assert!(typeCheckExp(validNegate_recursive, &mut empty_hashmap.clone()).is_ok());
-    assert!(typeCheckExp(validNegate_bool, &mut empty_hashmap.clone()).is_ok());
-    assert!(typeCheckExp(validNegate_comparison, &mut empty_hashmap.clone()).is_ok());
-
-    assert!(typeCheckExp(invalidNegate_nat, &mut empty_hashmap.clone()).is_err());
-    assert!(typeCheckExp(invalidNegate_heapRead, &mut hashmapWithHeapRead.clone()).is_err());
+    // assert!(typeCheckExp(validNegate_recursive, &mut empty_hashmap.clone()).is_ok());
+    typeCheckExpressionPass(validNegate_recursive, empty_hashmap.clone());
+    // assert!(typeCheckExp(validNegate_bool, &mut empty_hashmap.clone()).is_ok());
+    typeCheckExpressionPass(validNegate_bool, empty_hashmap.clone());
+    // assert!(typeCheckExp(validNegate_comparison, &mut empty_hashmap.clone()).is_ok());
+    typeCheckExpressionPass(validNegate_comparison, empty_hashmap.clone());
+    // assert!(typeCheckExp(invalidNegate_nat, &mut empty_hashmap.clone()).is_err());
+    typeCheckExpressionFail(invalidNegate_nat, empty_hashmap.clone());
+    // assert!(typeCheckExp(invalidNegate_heapRead, &mut hashmapWithHeapRead.clone()).is_err());
+    typeCheckExpressionFail(invalidNegate_heapRead, hashmapWithHeapRead.clone());
 }
 
 fn runConjunctionExamples(
@@ -70,11 +167,14 @@ fn runConjunctionExamples(
         ex2: Box::new(Expression::HeapRead { x: "h".to_string() }),
     };
 
-    assert!(typeCheckExp(validConj_boolExplicit, &mut empty_hashmap.clone()).is_ok());
-    assert!(typeCheckExp(validConj_boolWithNegation, &mut empty_hashmap.clone()).is_ok());
-
-    assert!(typeCheckExp(invalidConj_nat, &mut empty_hashmap.clone()).is_err());
-    assert!(typeCheckExp(invalidConj_heapVarRead, &mut hashmapWithHeapRead.clone()).is_err());
+    // assert!(typeCheckExp(validConj_boolExplicit, &mut empty_hashmap.clone()).is_ok());
+    typeCheckExpressionPass(validConj_boolExplicit, empty_hashmap.clone());
+    // assert!(typeCheckExp(validConj_boolWithNegation, &mut empty_hashmap.clone()).is_ok());
+    typeCheckExpressionPass(validConj_boolWithNegation, empty_hashmap.clone());
+    // assert!(typeCheckExp(invalidConj_nat, &mut empty_hashmap.clone()).is_err());
+    typeCheckExpressionFail(invalidConj_nat, empty_hashmap.clone());
+    // assert!(typeCheckExp(invalidConj_heapVarRead, &mut hashmapWithHeapRead.clone()).is_err());
+    typeCheckExpressionFail(invalidConj_heapVarRead, hashmapWithHeapRead.clone());
 }
 
 fn runAddExamples(
@@ -101,10 +201,12 @@ fn runAddExamples(
         }),
     };
 
-    assert!(typeCheckExp(validAdd_nats, &mut empty_hashmap.clone()).is_ok());
-    assert!(typeCheckExp(validAdd_heapVar, &mut hashmapWithHeapRead.clone()).is_ok());
-
-    assert!(typeCheckExp(invalidAdd_bools, &mut empty_hashmap.clone()).is_err());
+    // assert!(typeCheckExp(validAdd_nats, &mut empty_hashmap.clone()).is_ok());
+    typeCheckExpressionPass(validAdd_nats, empty_hashmap.clone());
+    // assert!(typeCheckExp(validAdd_heapVar, &mut hashmapWithHeapRead.clone()).is_ok());
+    typeCheckExpressionPass(validAdd_heapVar, hashmapWithHeapRead.clone());
+    // assert!(typeCheckExp(invalidAdd_bools, &mut empty_hashmap.clone()).is_err());
+    typeCheckExpressionFail(invalidAdd_bools, empty_hashmap.clone());
 }
 
 fn runHeapReadExamples(
@@ -118,10 +220,12 @@ fn runHeapReadExamples(
     let invalidRead_nat = Expression::HeapRead { x: "n".to_string() };
     let invalidRead_bool = Expression::HeapRead { x: "b".to_string() };
 
-    assert!(typeCheckExp(validRead_heapPtr, &mut hashmapWithHeapRead.clone()).is_ok());
-
-    assert!(typeCheckExp(invalidRead_nat, &mut hashmapWithNatStackVar.clone()).is_err());
-    assert!(typeCheckExp(invalidRead_bool, &mut hashmapWithBoolStackVar.clone()).is_err());
+    // assert!(typeCheckExp(validRead_heapPtr, &mut hashmapWithHeapRead.clone()).is_ok());
+    typeCheckExpressionPass(validRead_heapPtr, hashmapWithHeapRead.clone());
+    // assert!(typeCheckExp(invalidRead_nat, &mut hashmapWithNatStackVar.clone()).is_err());
+    typeCheckExpressionFail(invalidRead_nat, hashmapWithNatStackVar.clone());
+    // assert!(typeCheckExp(invalidRead_bool, &mut hashmapWithBoolStackVar.clone()).is_err());
+    typeCheckExpressionFail(invalidRead_bool, hashmapWithBoolStackVar.clone());
 }
 
 fn runComparisonExamples(
@@ -147,10 +251,12 @@ fn runComparisonExamples(
         }),
     };
 
-    assert!(typeCheckExp(validAdd_nats, &mut empty_hashmap.clone()).is_ok());
-    assert!(typeCheckExp(validAdd_heapVar, &mut hashmapWithHeapRead.clone()).is_ok());
-
-    assert!(typeCheckExp(invalidAdd_bools, &mut empty_hashmap.clone()).is_err());
+    // assert!(typeCheckExp(validAdd_nats, &mut empty_hashmap.clone()).is_ok());
+    typeCheckExpressionPass(validAdd_nats, empty_hashmap.clone());
+    // assert!(typeCheckExp(validAdd_heapVar, &mut hashmapWithHeapRead.clone()).is_ok());
+    typeCheckExpressionPass(validAdd_heapVar, hashmapWithHeapRead.clone());
+    // assert!(typeCheckExp(invalidAdd_bools, &mut empty_hashmap.clone()).is_err());
+    typeCheckExpressionFail(invalidAdd_bools, empty_hashmap.clone());
 }
 
 fn runHeapNewExamples(
@@ -185,25 +291,44 @@ fn runHeapNewExamples(
         x: "x".to_string(),
         ex1: Expression::BoolConstant { b: true },
     };
-    assert!(typeCheck(invalidPtr_comparison, &mut empty_hashmap.clone()).is_some());
-    assert!(typeCheck(invalidPtr_boolConstant, &mut empty_hashmap.clone()).is_some());
-
-    assert!(typeCheck(validPtr_natConstant, &mut empty_hashmap.clone()).is_none());
-    assert!(typeCheck(validPtr_natAdd, &mut empty_hashmap.clone()).is_none());
+    // assert!(typeCheck(invalidPtr_comparison, &mut empty_hashmap.clone()).is_some());
+    typeCheckStatementFail(invalidPtr_comparison, empty_hashmap.clone());
+    // assert!(typeCheck(invalidPtr_boolConstant, &mut empty_hashmap.clone()).is_some());
+    typeCheckStatementFail(invalidPtr_boolConstant, empty_hashmap.clone());
+    let hashmap1 = &mut empty_hashmap.clone();
+    hashmap1.insert("x".to_string(), ExType::PointerType);
+    // assert!(typeCheck(validPtr_natConstant, &mut empty_hashmap.clone()).is_none());
+    typeCheckStatementPass(
+        validPtr_natConstant,
+        empty_hashmap.clone(),
+        hashmap1.clone(),
+    );
+    // assert!(typeCheck(validPtr_natAdd, &mut empty_hashmap.clone()).is_none());
+    typeCheckStatementPass(validPtr_natAdd, empty_hashmap.clone(), hashmap1.clone());
 
     let hashmap2 = &mut hashmapWithHeapRead.clone();
     hashmap2.insert("x".to_string(), ExType::PointerType);
-    assert!(typeCheck(validPtr_readHeapReadiable.clone(), hashmap2).is_none());
-    assert!(hashmap2.contains_key(&"x".to_string()));
-    assert_eq!(hashmap2.get(&"x".to_string()), Some(&ExType::PointerType));
-
-    assert!(typeCheck(
+    // assert!(typeCheck(validPtr_readHeapReadiable.clone(), hashmap2).is_none());
+    typeCheckStatementPass(
         validPtr_readHeapReadiable.clone(),
-        &mut hashmapWithHeapRead.clone()
-    )
-    .is_none());
-    assert!(hashmap2.contains_key(&"x".to_string()));
-    assert_eq!(hashmap2.get(&"x".to_string()), Some(&ExType::PointerType));
+        hashmap2.clone(),
+        hashmap2.clone(),
+    );
+    // assert!(hashmap2.contains_key(&"x".to_string()));
+    // assert_eq!(hashmap2.get(&"x".to_string()), Some(&ExType::PointerType));
+    // assert!(typeCheck(
+    //     validPtr_readHeapReadiable.clone(),
+    //     &mut hashmapWithHeapRead.clone()
+    // )
+    // .is_none());
+    typeCheckStatementPass(
+        validPtr_readHeapReadiable.clone(),
+        hashmapWithHeapRead.clone(),
+        hashmap2.clone(),
+    );
+
+    // assert!(hashmap2.contains_key(&"x".to_string()));
+    // assert_eq!(hashmap2.get(&"x".to_string()), Some(&ExType::PointerType));
 }
 
 fn runAssignmentStoreExamples(
@@ -240,11 +365,32 @@ fn runAssignmentStoreExamples(
         ex1: Expression::StackVar { x: "h".to_string() },
     };
 
-    assert!(typeCheck(validAssignment_nat, &mut empty_hashmap.clone()).is_none());
-    assert!(typeCheck(validAssignment_boolConjunction, &mut empty_hashmap.clone()).is_none());
-    assert!(typeCheck(validAssignment_boolNegation, &mut empty_hashmap.clone()).is_none());
+    let hashmap1 = &mut empty_hashmap.clone();
+    hashmap1.insert("x".to_string(), ExType::NatType);
+    // assert!(typeCheck(validAssignment_nat, &mut empty_hashmap.clone()).is_none());
+    typeCheckStatementPass(
+        validAssignment_nat.clone(),
+        empty_hashmap.clone(),
+        hashmap1.clone(),
+    );
+    let hashmap2 = &mut empty_hashmap.clone();
+    hashmap2.insert("x".to_string(), ExType::BoolType);
+    // assert!(typeCheck(validAssignment_boolConjunction, &mut empty_hashmap.clone()).is_none());
+    typeCheckStatementPass(
+        validAssignment_boolConjunction.clone(),
+        empty_hashmap.clone(),
+        hashmap2.clone(),
+    );
+    // assert!(typeCheck(validAssignment_boolNegation, &mut empty_hashmap.clone()).is_none());
+    typeCheckStatementPass(
+        validAssignment_boolNegation.clone(),
+        empty_hashmap.clone(),
+        hashmap2.clone(),
+    );
 
-    assert!(typeCheck(invalidAssignment_pointer, &mut hashmapWithHeapRead.clone()).is_some());
+    // assert!(typeCheck(invalidAssignment_pointer, &mut hashmapWithHeapRead.clone()).is_some());
+    typeCheckStatementFail(invalidAssignment_pointer, hashmapWithHeapRead.clone());
+
 }
 
 fn runFibonacci(empty_hashmap: HashMap<String, ExType>) {
@@ -326,8 +472,14 @@ fn runFibonacci(empty_hashmap: HashMap<String, ExType>) {
             }),
         }),
     };
-    print!("{}", imp::printStatement(fibonnaci_tree.clone()));
-    assert!(typeCheck(fibonnaci_tree, &mut empty_hashmap.clone()).is_none());
+
+    let hashmap1 = &mut empty_hashmap.clone();
+    hashmap1.insert("fibonacci_number".to_string(), ExType::NatType);
+    typeCheckStatementPass(
+        fibonnaci_tree.clone(),
+        empty_hashmap.clone(),
+        hashmap1.clone(),
+    );
 }
 
 fn main() {
@@ -342,6 +494,18 @@ fn main() {
     let mut hashmapWithNatStackVar = HashMap::new();
     hashmapWithNatStackVar.insert("n".to_string(), ExType::NatType);
 
+
+    runAddExamples(empty_hashmap.clone(), hashmapWithHeapRead.clone());
+    runNegationExamples(empty_hashmap.clone(), hashmapWithHeapRead.clone());
+    runConjunctionExamples(empty_hashmap.clone(), hashmapWithHeapRead.clone());
+    runComparisonExamples(empty_hashmap.clone(), hashmapWithHeapRead.clone());
+    runHeapReadExamples(
+        empty_hashmap.clone(),
+        hashmapWithHeapRead.clone(),
+        hashmapWithBoolStackVar.clone(),
+        hashmapWithNatStackVar.clone(),
+    );
+
     runHeapNewExamples(
         empty_hashmap.clone(),
         hashmapWithHeapRead.clone(),
@@ -354,16 +518,7 @@ fn main() {
         hashmapWithBoolStackVar.clone(),
         hashmapWithNatStackVar.clone(),
     );
-    runAddExamples(empty_hashmap.clone(), hashmapWithHeapRead.clone());
-    runNegationExamples(empty_hashmap.clone(), hashmapWithHeapRead.clone());
-    runConjunctionExamples(empty_hashmap.clone(), hashmapWithHeapRead.clone());
-    runComparisonExamples(empty_hashmap.clone(), hashmapWithHeapRead.clone());
-    runHeapReadExamples(
-        empty_hashmap.clone(),
-        hashmapWithHeapRead.clone(),
-        hashmapWithBoolStackVar.clone(),
-        hashmapWithNatStackVar.clone(),
-    );
+    
 
     runFibonacci(empty_hashmap.clone());
 }
