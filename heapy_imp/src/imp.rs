@@ -20,7 +20,7 @@ pub enum Expression {
     StackVar {
         x: String,
     },
-    HeapVar {
+    HeapRead {
         x: String,
     },
     NatConstant {
@@ -101,7 +101,7 @@ pub enum ExType {
 pub fn printExpression(exp: Expression) -> String {
     match exp {
         Expression::StackVar { x } => String::from(x) + " ",
-        Expression::HeapVar { x } => String::from("!") + &x + " ",
+        Expression::HeapRead { x } => String::from("!") + &x + " ",
         Expression::NatConstant { n } => n.to_string(),
         Expression::BoolConstant { b } => b.to_string(),
         Expression::Add { ex1, ex2 } => {
@@ -121,7 +121,7 @@ pub fn printExpression(exp: Expression) -> String {
         Expression::Comparision { ex1, ex2 } => {
             let t1 = printExpression(*ex1);
             let t2 = printExpression(*ex2);
-            String::from("(") + &t1.to_owned() + ") <=> (" + &t2.to_owned() + ")"
+            String::from("(") + &t1.to_owned() + ") <= (" + &t2.to_owned() + ")"
         }
     }
 }
@@ -180,7 +180,7 @@ pub fn typeCheckExp(exp: Expression, stack: &HashMap<String, ExType>) -> Result<
                 Result::Err(format!("undeclared stack variable: {}", x))
             }
         }
-        Expression::HeapVar { x } => {
+        Expression::HeapRead { x } => {
             if stack.contains_key(&x) {
                 match stack.get(&x).unwrap().clone() {
                     ExType::PointerType => Result::Ok(ExType::NatType),
