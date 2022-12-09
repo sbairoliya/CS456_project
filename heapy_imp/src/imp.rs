@@ -160,7 +160,7 @@ pub fn printStatement(st: Statement) -> String {
                 + &thenb.to_owned()
                 + " } else { "
                 + &elseb.to_owned()
-                + "}"
+                + " }"
         }
         Statement::Skip => String::from("skip"),
         Statement::While { condition, st } => {

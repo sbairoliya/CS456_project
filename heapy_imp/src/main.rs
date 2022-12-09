@@ -232,19 +232,19 @@ fn runComparisonExamples(
     empty_hashmap: HashMap<String, ExType>,
     hashmapWithHeapRead: HashMap<String, ExType>,
 ) {
-    let validAdd_nats = Expression::Add {
+    let validAdd_nats = Expression::Comparision {
         ex1: Box::new(Expression::NatConstant { n: 2 }),
         ex2: Box::new(Expression::Add {
             ex1: Box::new(Expression::NatConstant { n: 49 }),
             ex2: Box::new(Expression::NatConstant { n: 23 }),
         }),
     };
-    let validAdd_heapVar = Expression::Add {
+    let validAdd_heapVar = Expression::Comparision {
         ex1: Box::new(Expression::NatConstant { n: 2 }),
         ex2: Box::new(Expression::HeapRead { x: "h".to_string() }),
     };
 
-    let invalidAdd_bools = Expression::Add {
+    let invalidAdd_bools = Expression::Comparision {
         ex1: Box::new(Expression::NatConstant { n: 2 }),
         ex2: Box::new(Expression::Negation {
             ex1: Box::new(Expression::BoolConstant { b: true }),
@@ -390,6 +390,101 @@ fn runAssignmentStoreExamples(
 
     // assert!(typeCheck(invalidAssignment_pointer, &mut hashmapWithHeapRead.clone()).is_some());
     typeCheckStatementFail(invalidAssignment_pointer, hashmapWithHeapRead.clone());
+}
+
+fn testIfThenElse(
+    empty_hashmap: HashMap<String, ExType>,
+    hashmapWithHeapRead: HashMap<String, ExType>,
+    hashmapWithBoolStackVar: HashMap<String, ExType>,
+    hashmapWithNatStackVar: HashMap<String, ExType>,
+) {
+    let if_else_st_basic_valid = Statement::IfThenElse {
+        condition: Expression::Comparision {
+            ex1: Box::new(Expression::StackVar { x: "n".to_string() }),
+            ex2: Box::new(Expression::StackVar { x: "n".to_string() }),
+        },
+        then_branch: Box::new(Statement::StackAssignment {
+            x: "n".to_string(),
+            ex1: Expression::NatConstant { n: 10 },
+        }),
+        else_branch: Box::new(Statement::StackAssignment {
+            x: "n".to_string(),
+            ex1: Expression::NatConstant { n: 12 },
+        }),
+    };
+
+    typeCheckStatementPass(
+        if_else_st_basic_valid,
+        hashmapWithNatStackVar.clone(),
+        hashmapWithNatStackVar.clone(),
+    );
+
+    let if_else_skip_if_valid = Statement::IfThenElse {
+        condition: Expression::Comparision {
+            ex1: Box::new(Expression::StackVar { x: "n".to_string() }),
+            ex2: Box::new(Expression::StackVar { x: "n".to_string() }),
+        },
+        then_branch: Box::new(Statement::Skip),
+        else_branch: Box::new(Statement::StackAssignment {
+            x: "n".to_string(),
+            ex1: Expression::NatConstant { n: 12 },
+        }),
+    };
+
+    typeCheckStatementPass(
+        if_else_skip_if_valid,
+        hashmapWithNatStackVar.clone(),
+        hashmapWithNatStackVar.clone(),
+    );
+
+    let if_else_skip_else_valid = Statement::IfThenElse {
+        condition: Expression::Comparision {
+            ex1: Box::new(Expression::StackVar { x: "n".to_string() }),
+            ex2: Box::new(Expression::StackVar { x: "n".to_string() }),
+        },
+        then_branch: Box::new(Statement::StackAssignment {
+            x: "n".to_string(),
+            ex1: Expression::NatConstant { n: 10 },
+        }),
+        else_branch: Box::new(Statement::Skip),
+    };
+
+    typeCheckStatementPass(
+        if_else_skip_else_valid,
+        hashmapWithNatStackVar.clone(),
+        hashmapWithNatStackVar.clone(),
+    );
+
+    let if_else_skip_else_invalid = Statement::IfThenElse {
+        condition: Expression::Comparision {
+            ex1: Box::new(Expression::StackVar { x: "n".to_string() }),
+            ex2: Box::new(Expression::StackVar { x: "n".to_string() }),
+        },
+        then_branch: Box::new(Statement::StackAssignment {
+            x: "x".to_string(),
+            ex1: Expression::NatConstant { n: 10 },
+        }),
+        else_branch: Box::new(Statement::Skip),
+    };
+
+    typeCheckStatementFail(
+        if_else_skip_else_invalid,
+        hashmapWithNatStackVar.clone(),
+    );
+
+    let if_else_invalid = Statement::IfThenElse {
+        condition: Expression::NatConstant { n: 10 },
+        then_branch: Box::new(Statement::StackAssignment {
+            x: "n".to_string(),
+            ex1: Expression::NatConstant { n: 10 },
+        }),
+        else_branch: Box::new(Statement::Skip),
+    };
+
+    typeCheckStatementFail(
+        if_else_invalid,
+        hashmapWithNatStackVar.clone(),
+    );
 
 }
 
@@ -494,7 +589,6 @@ fn main() {
     let mut hashmapWithNatStackVar = HashMap::new();
     hashmapWithNatStackVar.insert("n".to_string(), ExType::NatType);
 
-
     runAddExamples(empty_hashmap.clone(), hashmapWithHeapRead.clone());
     runNegationExamples(empty_hashmap.clone(), hashmapWithHeapRead.clone());
     runConjunctionExamples(empty_hashmap.clone(), hashmapWithHeapRead.clone());
@@ -518,7 +612,13 @@ fn main() {
         hashmapWithBoolStackVar.clone(),
         hashmapWithNatStackVar.clone(),
     );
-    
+
+    testIfThenElse(
+        empty_hashmap.clone(),
+        hashmapWithHeapRead.clone(),
+        hashmapWithBoolStackVar.clone(),
+        hashmapWithNatStackVar.clone(),
+    );
 
     runFibonacci(empty_hashmap.clone());
 }
